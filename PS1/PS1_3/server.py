@@ -1,145 +1,113 @@
 import socket
 import threading
-import time
+
+class TicTacToe:
+    def __init__(self):
+        self.board = [' '] * 9
+        self.current_turn = 'X'
+
+    def display_board(self):
+        """Return the board as a string for display."""
+        board = f"\n {self.board[0]} | {self.board[1]} | {self.board[2]} \n"
+        board += "---|---|---\n"
+        board += f" {self.board[3]} | {self.board[4]} | {self.board[5]} \n"
+        board += "---|---|---\n"
+        board += f" {self.board[6]} | {self.board[7]} | {self.board[8]} \n"
+        return board
+
+    def make_move(self, position, player):
+        """Make a move if the position is valid and return success status."""
+        if 0 <= position < 9 and self.board[position] == ' ':
+            self.board[position] = player
+            return True
+        return False
+
+    def check_winner(self):
+        """Check for a winner or draw."""
+        winning_combinations = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8],  # Rows
+            [0, 3, 6], [1, 4, 7], [2, 5, 8],  # Columns
+            [0, 4, 8], [2, 4, 6]              # Diagonals
+        ]
+
+        for combo in winning_combinations:
+            if self.board[combo[0]] == self.board[combo[1]] == self.board[combo[2]] != ' ':
+                return f"Winner: Player {self.board[combo[0]]}"
+
+        if ' ' not in self.board:
+            return "Draw"
+
+        return None  # Game continues
 
 
-class TicTacToeGame:
-   def __init__(self):
-       self.board = [' '] * 9
-       self.current_player = 'X'
-  
-   def make_move(self, position, player):
-       """Validate and make a move on the board."""
-       if self.board[position] == ' ':
-           self.board[position] = player
-           return True
-       return False
-  
-   def check_winner(self):
-       """Check if there's a winner or a draw."""
-       # Winning combinations
-       win_combinations = [
-           # Rows
-           (0, 1, 2), (3, 4, 5), (6, 7, 8),
-           # Columns
-           (0, 3, 6), (1, 4, 7), (2, 5, 8),
-           # Diagonals
-           (0, 4, 8), (2, 4, 6)
-       ]
-      
-       for combo in win_combinations:
-           if (self.board[combo[0]] == self.board[combo[1]] == self.board[combo[2]]) and self.board[combo[0]] != ' ':
-               return self.board[combo[0]]
-      
-       # Check for draw
-       if ' ' not in self.board:
-           return 'Draw'
-      
-       return None
+def handle_session(player1, player2):
+    """Handle a game session between two players."""
+    game = TicTacToe()
+    players = {player1: 'X', player2: 'O'}
+    current_socket = player1
 
+    # Notify players of their tokens
+    player1.send("You are Player 1 (X)".encode())
+    player2.send("You are Player 2 (O)".encode())
 
-class GameSession(threading.Thread):
-   def __init__(self, player1_socket, player2_socket):
-       threading.Thread.__init__(self)
-       self.player1_socket = player1_socket
-       self.player2_socket = player2_socket
-       self.game = TicTacToeGame()
-  
-   def run(self):
-       try:
-           # Assign tokens and notify players
-           self.player1_socket.send('X'.encode())
-           self.player2_socket.send('O'.encode())
-          
-           while True:
-               # Player X's turn
-               self.handle_player_turn(self.player1_socket, 'X', self.player2_socket)
-              
-               # Check for game end after X's move
-               winner = self.game.check_winner()
-               if winner:
-                   self.end_game(winner)
-                   break
-              
-               # Player O's turn
-               self.handle_player_turn(self.player2_socket, 'O', self.player1_socket)
-              
-               # Check for game end after O's move
-               winner = self.game.check_winner()
-               if winner:
-                   self.end_game(winner)
-                   break
-      
-       except Exception as e:
-           print(f"Game session error: {e}")
-       finally:
-           self.player1_socket.close()
-           self.player2_socket.close()
-  
-   def handle_player_turn(self, current_player_socket, player_token, other_player_socket):
-       """Handle a single player's turn."""
-       # Send current board state
-       board_state = ','.join(self.game.board)
-       current_player_socket.send(board_state.encode())
-      
-       # Receive move from current player
-       move = int(current_player_socket.recv(1024).decode())
-      
-       # Validate move
-       if self.game.make_move(move, player_token):
-           # Send confirmation to current player
-           current_player_socket.send('VALID_MOVE'.encode())
-          
-           # Send updated board to other player
-           board_state = ','.join(self.game.board)
-           other_player_socket.send(board_state.encode())
-       else:
-           # Send invalid move notification
-           current_player_socket.send('INVALID_MOVE'.encode())
-           # Recursive call to retry the turn
-           self.handle_player_turn(current_player_socket, player_token, other_player_socket)
-  
-   def end_game(self, winner):
-       """End the game and notify players of the result."""
-       result_msg = f'Winner:{winner}' if winner != 'Draw' else 'Draw'
-       self.player1_socket.send(result_msg.encode())
-       self.player2_socket.send(result_msg.encode())
+    while True:
+        # Send the board to both players
+        board = game.display_board()
+        for player in [player1, player2]:
+            player.send(board.encode())
 
+        # Notify current player
+        current_player_token = players[current_socket]
+        current_socket.send(f"Your turn, Player {current_player_token}. Enter your move (0-8):".encode())
 
-class TicTacToeServer:
-   def __init__(self, host='localhost', port=65432):
-       self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-       self.server_socket.bind((host, port))
-       self.server_socket.listen(10)  # Allow multiple game sessions
-       print(f"Server started on {host}:{port}")
-  
-   def start(self):
-       try:
-           while True:
-               # Wait for first player
-               print("Waiting for first player...")
-               player1_socket, player1_address = self.server_socket.accept()
-               print(f"First player connected from {player1_address}")
-              
-               # Wait for second player
-               print("Waiting for second player...")
-               player2_socket, player2_address = self.server_socket.accept()
-               print(f"Second player connected from {player2_address}")
-              
-               # Create and start a new game session
-               game_session = GameSession(player1_socket, player2_socket)
-               game_session.start()
-      
-       except Exception as e:
-           print(f"Server error: {e}")
-       finally:
-           self.server_socket.close()
+        try:
+            # Receive move and validate
+            move = int(current_socket.recv(1024).decode())
+            if not game.make_move(move, current_player_token):
+                current_socket.send("Invalid move. Try again.".encode())
+                continue
+        except ValueError:
+            current_socket.send("Invalid input. Try again.".encode())
+            continue
+
+        # Check for winner or draw
+        result = game.check_winner()
+        if result:
+            board = game.display_board()
+            for player in [player1, player2]:
+                player.send(board.encode())
+                player.send(result.encode())
+            break
+
+        # Switch turns
+        current_socket = player1 if current_socket == player2 else player2
+
+    player1.close()
+    player2.close()
 
 
 def main():
-   server = TicTacToeServer()
-   server.start()
+    host = '127.0.0.1'
+    port = 65432
+
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind((host, port))
+    server_socket.listen()
+
+    print("Tic-Tac-Toe Server is running...")
+    print("Waiting for players...")
+
+    while True:
+        player1, addr1 = server_socket.accept()
+        print(f"Player 1 connected from {addr1}")
+
+        player2, addr2 = server_socket.accept()
+        print(f"Player 2 connected from {addr2}")
+
+        # Start a new session for the two players
+        session_thread = threading.Thread(target=handle_session, args=(player1, player2))
+        session_thread.start()
 
 
-if __name__ == '__main__':
-   main()
+if __name__ == "__main__":
+    main()
