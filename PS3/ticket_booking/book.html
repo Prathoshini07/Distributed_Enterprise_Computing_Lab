@@ -1,0 +1,10 @@
+<h1>Book Tickets for {{ show.event.event_name }} at {{ show.show_time }}</h1>
+{% if error %}
+    <p style="color: red;">{{ error }}</p>
+{% endif %}
+<form method="post">
+    {% csrf_token %}
+    Name: <input type="text" name="name" required><br>
+    Tickets: <input type="number" name="tickets" required><br>
+    <button type="submit">Book</button>
+</form>
