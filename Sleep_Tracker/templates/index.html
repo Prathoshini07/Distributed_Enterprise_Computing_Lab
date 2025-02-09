@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sleep Timer Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Sleep Timer Tracker</h1>
+    <a href="{{ url_for('insert') }}">Add New Record</a>
+    <table>
+        <tr>
+            <th>S.No</th>
+            <th>Date</th>
+            <th>Sleep Time</th>
+            <th>Wakeup Time</th>
+            <th>Duration</th>
+            <th>Actions</th>
+        </tr>
+        {% for record in records %}
+        <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ record[1] }}</td>
+            <td>{{ record[2] }}</td>
+            <td>{{ record[3] }}</td>
+            <td>{{ record[4] }}</td>
+            <td>
+                <a href="{{ url_for('edit', date=record[1]) }}">Edit</a>
+                <a href="{{ url_for('delete', date=record[1]) }}">Delete</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
