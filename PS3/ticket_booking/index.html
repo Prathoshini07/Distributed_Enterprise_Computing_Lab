@@ -1,0 +1,8 @@
+<h1>Available Shows</h1>
+<ul>
+    {% for show in shows %}
+        <li>{{ show.event.event_name }} - {{ show.show_time }} - Tickets: {{ show.available_tickets }}
+            <a href="{% url 'book_tickets' show.show_id %}">Book Now</a>
+        </li>
+    {% endfor %}
+</ul>
